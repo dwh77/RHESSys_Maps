@@ -450,8 +450,83 @@ RHESSysPreprocess(
 
 
 
+## Look at how veg ID fell out within patches
+
+Function to get veg ID from worldfile
+```{r}
+parse_worldfile <- function(filepath) {
+  lines <- readLines(filepath)
+  
+  patches <- list()
+  current_patch <- NULL
+  in_patch <- FALSE
+  
+  for (line in lines) {
+    line <- trimws(line)
+    
+    # Detect patch block
+    if (grepl("^\\d+\\s+patch_ID", line)) {
+      if (!is.null(current_patch)) {
+        patches <- append(patches, list(current_patch))
+      }
+      current_patch <- list(patch_ID = as.integer(strsplit(line, "\\s+")[[1]][1]))
+      in_patch <- TRUE
+      
+    } else if (in_patch) {
+      if (grepl("veg_parm_ID", line)) {
+        current_patch$veg_parm_ID <- as.integer(strsplit(line, "\\s+")[[1]][1])
+      }
+      # Stop collecting at stratum level
+      if (grepl("^\\d+\\s+stratum_ID", line)) {
+        in_patch <- FALSE
+      }
+    }
+  }
+  
+  # Catch last patch
+  if (!is.null(current_patch)) {
+    patches <- append(patches, list(current_patch))
+  }
+  
+  bind_rows(patches)
+}
+
+```
 
 
+get info from worldfile and plot
+
+```{r}
+
+#### Parse worldfile 
+df <- parse_worldfile("CCR_files/CCR_NLCDveg/ccr_mixed.world")
+head(df)
+
+
+
+#### patch map ----
+
+# Load patch raster
+patch_rast <- rast("CCR_files/spatial_data/ccr_patch_map_kmeans1000.tif")
+plot(patch_rast)
+
+# Build lookup table
+lookup <- setNames(df$veg_parm_ID, df$patch_ID)
+
+# Remap patch IDs to veg_parm_ID using classify()
+# Create a reclassification matrix: [from, to]
+reclass_mat <- cbind(
+  from = as.numeric(names(lookup)),
+  to   = as.numeric(lookup)
+)
+
+veg_rast <- classify(patch_rast, reclass_mat, others = NA)
+
+#plot
+plot(veg_rast)
+
+
+```
 
 
 
