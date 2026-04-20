@@ -150,6 +150,7 @@ fill NAs for basin
 
 #basins
 basins1K_filled  <- fill_edge_na(basins1K, ws)
+plot(basins1K)
 plot(basins1K_filled)
 sum(is.na(values(basins1K_filled)))
 sum(is.na(values(basins1K)))
@@ -160,6 +161,7 @@ sum(is.na(values(ws)))
 
 #half basins
 halfbasins1K_filled  <- fill_edge_na(halfbasins1K, ws)
+plot(halfbasins1K)
 plot(halfbasins1K_filled)
 sum(is.na(values(halfbasins1K_filled)))
 sum(is.na(values(halfbasins1K)))
@@ -445,10 +447,6 @@ RHESSysPreprocess(
 
 
 ```
-
-
-
-
 
 
 
