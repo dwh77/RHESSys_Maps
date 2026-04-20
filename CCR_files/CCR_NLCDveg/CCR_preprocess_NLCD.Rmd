@@ -1,0 +1,462 @@
+---
+title: "CCR_preprocess"
+output: html_document
+date: "2026-04-20"
+---
+
+
+## Get packages 
+
+```{r}
+library(terra)
+library(RHESSysPreprocessing)
+```
+
+
+##reproject DEM to utm for GRASS
+In GRASS using this dem JOINED to the bathymetry "Downloaded_data/CCR_bathy/CCR_bathy_DEM_bind.tif" as input that was created in GETDEM.R
+And the associated watershed file from that script "Downloaded_data/Watershed_rasters/ccr_ws.tif"
+
+In GRASS making slope, aspect, basins, etc maps 
+Will read these in and clean up below, then format veg cover maps
+
+
+
+
+#### look at maps 
+sum(is.na(values(ws))) is to check for NAs, if value doesn't equal basins will need to fill those gaps 
+
+```{r}
+#basin
+getwd()
+ws <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_ws.tif")
+plot(ws, main = "Watershed")
+sum(is.na(values(ws)))
+
+#dem
+dem <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_dem.tif")
+plot(dem, main = "DEM")
+sum(is.na(values(dem)))
+
+
+#slope
+slope <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_slope.tif")
+plot(slope, main = "slope")
+sum(is.na(values(slope)))
+
+
+#aspect
+aspect <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_aspect.tif")
+plot(aspect, main = "aspect")
+sum(is.na(values(aspect)))
+
+
+#West Horizon
+whr <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_whr.tif")
+plot(whr, main = "West horizon")
+sum(is.na(values(whr)))
+
+
+#East horizon
+ehr <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_ehr.tif")
+plot(ehr, main = "east  horizon")
+sum(is.na(values(ehr)))
+
+
+
+
+#basins
+basins1K <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_basin1K.tif")
+plot(basins1K, main = "basins 1K")
+sum(is.na(values(basins1K)))
+
+
+
+# half basins
+halfbasins1K <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_halfbasin1K.tif")
+plot(halfbasins1K, main = "halfbasins 1K")
+sum(is.na(values(halfbasins1K)))
+
+
+
+#streams
+streams1K <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_stream1K.tif")
+plot(streams1K, main = "streams 1K", type = "classes")
+unique(streams1K)
+
+
+
+```
+
+
+## some plots to conceputalize basins 
+
+```{r}
+#basins and their streams
+plot(basins1K)
+plot(streams1K, type = "classes", add = T)
+plot(streams1K, type = "classes", add = T,
+     col  = hcl.colors(n = 34, palette = "Set 2"),   # n = number of classes
+     #col  = c("steelblue", "orange", "forestgreen") # one color per class
+     ) 
+
+
+
+```
+
+
+
+## fill NAs
+
+function
+
+```{r}
+#function from chatt
+fill_edge_na <- function(r, watershed, maxiter = 20) {
+  
+  # Ensure aligned
+  r <- resample(r, watershed, method="near")
+  
+  # Mask to watershed
+  r <- mask(r, watershed)
+  
+  for (i in 1:maxiter) {
+    
+    na_cells <- is.na(r) & !is.na(watershed)
+    if (!any(values(na_cells), na.rm=TRUE)) break
+    
+    r <- focal(
+      r,
+      w = 3,
+      fun = function(x, ...) {
+        if (all(is.na(x))) return(NA)
+        return(x[which(!is.na(x))[1]])
+      },
+      na.policy = "only",
+      fillvalue = NA
+    )
+    
+    r <- mask(r, watershed)
+  }
+  
+  return(r)
+}#end function
+
+```
+
+
+fill NAs for basin
+```{r}
+
+#basins
+basins1K_filled  <- fill_edge_na(basins1K, ws)
+plot(basins1K_filled)
+sum(is.na(values(basins1K_filled)))
+sum(is.na(values(basins1K)))
+sum(is.na(values(ws)))
+
+# writeRaster(basins1K_filled, "../spatial_data/ccr_basin1K_filled.tif", overwrite = T)
+
+
+#half basins
+halfbasins1K_filled  <- fill_edge_na(halfbasins1K, ws)
+plot(halfbasins1K_filled)
+sum(is.na(values(halfbasins1K_filled)))
+sum(is.na(values(halfbasins1K)))
+sum(is.na(values(ws)))
+
+# writeRaster(halfbasins1K_filled, "../spatial_data/ccr_halfbasin1K_filled.tif", overwrite = T)
+
+
+```
+
+
+####fix NLCD to watershed
+
+```{r}
+getwd()
+
+#CCR watershed
+ws <- rast("../GRASSccr_ned_dem_OUTPUTS/ccr_ws.tif")
+plot(ws, main = "Watershed")
+sum(is.na(values(ws)))
+
+
+#proejct NLCD to CCR WS
+# nlcdOG <- rast("../../Downloaded_Data/NLCD/CCRbox_NLCD_Land_Cover_2021.tif")
+# plot(nlcdOG)
+
+nlcd <- rast("../../Downloaded_Data/NLCD/NLCD_rhessys_veg_cover.tif")
+plot(nlcd)
+
+NLCD_proj = project(as(nlcd, "SpatRaster"), ws, method = "near")
+plot(NLCD_proj)
+
+#now crop and mask
+nlcd_crop <- crop(NLCD_proj, ws)
+plot(nlcd_crop)
+
+nlcd_mask <- mask(nlcd_crop, ws)
+plot(nlcd_mask)
+sum(is.na(values(nlcd_mask)))
+
+
+##fill the NAs
+nlcd_filled  <- fill_edge_na(nlcd_mask, ws)
+plot(nlcd_filled)
+sum(is.na(values(nlcd_filled)))
+sum(is.na(values(nlcd_mask)))
+sum(is.na(values(ws)))
+
+# writeRaster(nlcd_filled, "../spatial_data/ccr_NLCD.tif", overwrite = T)
+
+
+```
+
+
+## Fix reservoir to basins and stream numbers
+This a mess; skipping for now and just using basins from above 
+
+```{r}
+# 
+# # --- Load inputs ---
+# watershed_r <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_ws.tif")
+# subbasins_r <- rast("../spatial_data/ccr_basin1K_filled.tif")
+# streams_r   <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_stream1K.tif")
+# dem_r       <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_dem.tif")
+# 
+# # ── Step 1: Create reservoir mask ────────────────────────────────────────────
+# # All cells at or below 356.6m become the reservoir subbasin (ID = 9999)
+# reservoir_mask <- ifel(dem_r <= 356.7, 1L, NA)
+# 
+# message("Reservoir cells: ", global(reservoir_mask, "sum", na.rm = TRUE)[1, 1])
+# 
+# # ── Step 2: Update subbasin map ──────────────────────────────────────────────
+# # Any cell that is reservoir gets ID 9999, all others keep their original ID
+# subbasins_updated <- ifel(!is.na(reservoir_mask), 9999L, subbasins_r)
+# 
+# message("Subbasin IDs (should include 9999): ")
+# print(sort(unique(na.omit(values(subbasins_updated)))))
+# 
+# # ── Step 3: Update stream map ─────────────────────────────────────────────────
+# # Each stream cell inherits the subbasin ID it spatially falls within
+# streams_updated <- ifel(!is.na(streams_r), subbasins_updated, NA)
+# 
+# # ── Step 4: Verify every subbasin has at least one stream cell ───────────────
+# basin_ids   <- sort(unique(na.omit(values(subbasins_updated))))
+# stream_ids  <- sort(unique(na.omit(values(streams_updated))))
+# missing_str <- setdiff(basin_ids, stream_ids)
+# 
+# message("\nBasins with no stream cell: ",
+#         ifelse(length(missing_str) == 0, "none",
+#                paste(missing_str, collapse = ", ")))
+# 
+# # # ── Step 5: For basins missing a stream, inject one at the lowest DEM cell ───
+# # if (length(missing_str) > 0) {
+# #   for (bid in missing_str) {
+# #     basin_cells  <- which(values(subbasins_updated) == bid)
+# #     outlet_cell  <- basin_cells[which.min(values(dem_r)[basin_cells])]
+# #     values(streams_updated)[outlet_cell] <- bid
+# #     message("  Injected stream cell for basin ", bid,
+# #             " at cell ", outlet_cell,
+# #             " (elev = ", round(values(dem_r)[outlet_cell], 2), "m)")
+# #   }
+# # }
+# 
+# # ── Step 6: Final checks ──────────────────────────────────────────────────────
+# basin_ids_final  <- sort(unique(na.omit(values(subbasins_updated))))
+# stream_ids_final <- sort(unique(na.omit(values(streams_updated))))
+# still_missing    <- setdiff(basin_ids_final, stream_ids_final)
+# 
+# message("\n--- Summary ---")
+# message("Total subbasins : ", length(basin_ids_final))
+# message("Total stream IDs: ", length(stream_ids_final))
+# message("Basins still missing streams: ",
+#         ifelse(length(still_missing) == 0, "none",
+#                paste(still_missing, collapse = ", ")))
+# 
+# message("\nSubbasin cell counts:")
+# print(freq(subbasins_updated))
+# 
+# message("\nStream cell counts per basin:")
+# print(freq(streams_updated))
+# 
+# ##plot 
+# plot(streams_updated, type = "classes")
+# plot(subbasins_updated, type = "classes")
+
+```
+
+
+
+
+
+
+
+## try making a more informed patch map 
+kmeans patches
+same size patches across hillslopes
+
+
+```{r}
+# ── Patch map generation ──────────────────────────────────────────────────────
+library(terra)
+
+dem        <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_dem.tif")
+hillslopes <- rast("../spatial_data/ccr_halfbasin1K_filled.tif")
+
+elev_col <- names(dem)  # grabs whatever the DEM band is called
+
+# ── Extract non-NA cells ──────────────────────────────────────────────────────
+xy   <- as.data.frame(dem, xy = TRUE, na.rm = TRUE)
+test <- terra::extract(hillslopes, as.matrix(xy[, c("x", "y")]))
+xy$hillslope <- test[, 1]
+
+# ── Diagnose flat hillslopes before clustering ────────────────────────────────
+hs_vals   <- unique(na.omit(values(hillslopes)))
+hs_counts <- sapply(hs_vals, function(h) sum(values(hillslopes) == h, na.rm = TRUE))
+
+flat_hs <- hs_vals[sapply(hs_vals, function(h) {
+  elev <- xy[xy$hillslope == h, elev_col]
+  sd(elev, na.rm = TRUE) == 0
+})]
+message("Flat hillslopes (zero elevation variance): ",
+        ifelse(length(flat_hs) == 0, "none", paste(flat_hs, collapse = ", ")))
+
+# ── Allocate patches proportional to hillslope area ──────────────────────────
+# Exclude flat hillslopes from proportional allocation — they get 1 patch each
+n_total      <- 1000
+land_hs      <- hs_vals[!hs_vals %in% flat_hs]
+land_counts  <- hs_counts[!hs_vals %in% flat_hs]
+total_cells  <- sum(land_counts)
+
+hs_npatches_land <- round(land_counts / total_cells * n_total)
+hs_npatches_land <- pmax(hs_npatches_land, 1)
+
+# ── Assign flat hillslopes a single patch ID each ────────────────────────────
+# These are reservoir/flat areas — no point clustering them
+flat_patch_start <- sum(hs_npatches_land) + 1
+
+xy$patch_id <- NA
+
+for (j in seq_along(flat_hs)) {
+  fhs <- flat_hs[j]
+  idx <- which(xy$hillslope == fhs)
+  xy$patch_id[idx] <- flat_patch_start + (j - 1)
+  message("Flat hillslope ", fhs, " → single patch ID ", flat_patch_start + (j - 1))
+}
+
+# ── Cluster land hillslopes ───────────────────────────────────────────────────
+for (i in seq_along(land_hs)) {
+  hs  <- land_hs[i]
+  idx <- which(xy$hillslope == hs)
+  sub <- xy[idx, c("x", "y", elev_col)]
+  
+  sub <- sub[complete.cases(sub) & apply(sub, 1, function(r) all(is.finite(r))), ]
+  
+  if (nrow(sub) == 0) {
+    message("Hillslope ", hs, " has no valid cells — skipping")
+    next
+  }
+  
+  n_centers <- min(hs_npatches_land[i], nrow(sub))
+  
+  # Scale then zero out any column that produced non-finite values
+  sub_scaled <- scale(sub)
+  bad_cols   <- apply(sub_scaled, 2, function(col) any(!is.finite(col)))
+  if (any(bad_cols)) {
+    message("Hillslope ", hs, " has zero-variance column(s): ",
+            paste(names(sub)[bad_cols], collapse = ", "), " — zeroing out")
+    sub_scaled[, bad_cols] <- 0
+  }
+  
+  set.seed(42)
+  km <- kmeans(sub_scaled, centers = n_centers, nstart = 5, iter.max = 100)
+  xy$patch_id[idx] <- km$cluster + sum(hs_npatches_land[seq_len(i - 1)])
+  
+  if (i %% 10 == 0) message("Processed ", i, " of ", length(land_hs), " hillslopes...")
+}
+
+# ── Check coverage ────────────────────────────────────────────────────────────
+message("\nTotal patches created: ", length(unique(na.omit(xy$patch_id))))
+message("Unassigned cells: ", sum(is.na(xy$patch_id)))
+
+# ── Write patch raster ────────────────────────────────────────────────────────
+patch_r <- rast(dem)
+values(patch_r) <- NA
+
+cell_idx <- cellFromXY(dem, as.matrix(xy[, c("x", "y")]))
+values(patch_r)[cell_idx] <- xy$patch_id
+
+# ── Plot ──────────────────────────────────────────────────────────────────────
+plot(patch_r, type = "classes", main = "Patch map")
+unique(patch_r)
+
+#write patch map
+# writeRaster(patch_r, "../spatial_data/ccr_patch_map_kmeans1000.tif", overwrite = TRUE)
+
+
+```
+
+
+
+
+
+#run preprocessing with smaller patch sizes
+
+```{r}
+
+getwd()
+## set up file paths 
+template = "templateNLCD_ccr.txt"
+type = "raster"
+typepars = "../spatial_data" #path of the folder containing your rasters
+name = "ccr_mixed"
+overwrite = FALSE
+streams = "ccr_stream1K"  #this is the GRASS streams that has segment #s ; doens't seem to affect flow table or worldfie using stream with segments or all segments as 1
+header = FALSE
+parallel = TRUE
+make_stream = 4
+
+## run preprocess
+RHESSysPreprocess(
+  template,
+  name,
+  map_dir = typepars,
+  typepars = NULL,
+  streams = streams,
+  overwrite = overwrite,
+  roads = NULL,
+  impervious = NULL,
+  roofs = NULL,
+  header = header,
+  meta = FALSE,
+  asprules = NULL,
+  unique_strata_ID = TRUE,
+  seq_patch_IDs = FALSE,
+  output_patch_map = FALSE,
+  fire_grid_out = FALSE,
+  parallel = parallel,
+  make_stream = make_stream,
+  skip_hillslope_check = TRUE,
+  convert_aspect = TRUE,
+  wrapper = TRUE
+)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
