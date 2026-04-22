@@ -219,6 +219,170 @@ sum(is.na(values(ws)))
 ## Fix reservoir to basins and stream numbers
 This a mess; skipping for now and just using basins from above 
 
+
+```{r}
+library(terra)
+
+# ── Load inputs ───────────────────────────────────────────────────────────────
+dem        <- rast("../GRASSccr_dem_bathy_OUTPUTS/ccr_dem.tif")
+hillslopes <- rast("../spatial_data/ccr_halfbasin1K_filled.tif")
+nlcd       <- rast("../spatial_data/ccr_NLCD.tif")  # values: 1, 3, 4
+
+# Ensure all rasters align
+nlcd       <- resample(nlcd,       dem, method = "near")
+hillslopes <- resample(hillslopes, dem, method = "near")
+
+# ── Step 1: Create hillslope × NLCD combined key ─────────────────────────────
+# Each unique combination of hillslope ID and NLCD class becomes a proto-patch
+# Multiply hillslope by 10 (or 100) to avoid key collisions across NLCD values
+hs_nlcd_key <- hillslopes * 100 + nlcd
+
+# ── Step 2: Clump spatially contiguous cells within each hs×nlcd group ───────
+# clump() finds connected regions (8-connected by default)
+# This ensures non-adjacent cells of the same hs×nlcd type become separate patches
+message("Clumping connected regions...")
+proto_patches <- terra::patches(hs_nlcd_key, directions = 8)
+
+message("Proto-patches before elevation split: ",
+        length(unique(na.omit(values(proto_patches)))))
+
+# ── Step 3: Split large proto-patches by elevation using kmeans ───────────────
+# Target ~1000 total patches
+n_target <- 1000
+
+# Build data frame of all valid cells
+xy        <- as.data.frame(dem, xy = TRUE, na.rm = TRUE)
+elev_col  <- names(dem)
+
+# Extract proto-patch ID and hillslope for each cell
+xy$proto  <- terra::extract(proto_patches, as.matrix(xy[, c("x","y")]))[, 1]
+xy$hs     <- terra::extract(hillslopes,    as.matrix(xy[, c("x","y")]))[, 1]
+xy$nlcd   <- terra::extract(nlcd,          as.matrix(xy[, c("x","y")]))[, 1]
+
+xy <- xy[complete.cases(xy), ]
+
+# Count cells per proto-patch
+proto_vals   <- sort(unique(na.omit(xy$proto)))
+proto_counts <- table(xy$proto)
+total_cells  <- nrow(xy)
+
+# Allocate target patches proportionally by proto-patch size
+# but floor at 1 per proto-patch
+proto_npatches <- round(as.numeric(proto_counts) / total_cells * n_target)
+proto_npatches <- pmax(proto_npatches, 1)
+names(proto_npatches) <- names(proto_counts)
+
+message("Allocating ", sum(proto_npatches), " patches across ",
+        length(proto_vals), " proto-patches")
+
+# ── Step 4: kmeans within each proto-patch using x, y, elevation ─────────────
+xy$patch_id <- NA
+patch_offset <- 0
+
+for (i in seq_along(proto_vals)) {
+  pid  <- proto_vals[i]
+  idx  <- which(xy$proto == pid)
+  sub  <- xy[idx, c("x", "y", elev_col)]
+
+  sub  <- sub[complete.cases(sub) &
+                apply(sub, 1, function(r) all(is.finite(r))), ]
+
+  if (nrow(sub) == 0) next
+
+  n_centers <- min(proto_npatches[as.character(pid)], nrow(sub))
+
+  if (n_centers == 1 || nrow(sub) == 1) {
+    # Single patch — no clustering needed
+    xy$patch_id[idx] <- patch_offset + 1
+  } else {
+    # Scale then zero out any zero-variance columns (e.g. flat reservoir cells)
+    sub_scaled <- scale(sub)
+    bad_cols   <- apply(sub_scaled, 2, function(col) any(!is.finite(col)))
+    if (any(bad_cols)) sub_scaled[, bad_cols] <- 0
+
+    set.seed(42)
+    km <- kmeans(sub_scaled, centers = n_centers, nstart = 5, iter.max = 100)
+    xy$patch_id[idx] <- km$cluster + patch_offset
+  }
+
+  patch_offset <- patch_offset + n_centers
+
+  if (i %% 50 == 0) message("  Processed ", i, " of ", length(proto_vals),
+                             " proto-patches...")
+}
+
+message("Total patches created: ", length(unique(na.omit(xy$patch_id))))
+
+# ── Step 5: Write patch raster ────────────────────────────────────────────────
+patch_r <- rast(dem)
+values(patch_r) <- NA
+
+cell_idx <- cellFromXY(dem, as.matrix(xy[, c("x", "y")]))
+values(patch_r)[cell_idx] <- xy$patch_id
+
+plot(patch_r)
+
+# writeRaster(patch_r, "../spatial_data/patch_nlcd1000.tif", overwrite = TRUE)
+
+# ── Step 6: Verification ──────────────────────────────────────────────────────
+message("\n--- Patch count per hillslope (should have no cross-hillslope patches) ---")
+
+# Check no patch spans multiple hillslopes
+patch_hs_check <- data.frame(
+  patch_id   = xy$patch_id,
+  hillslope  = xy$hs
+)
+cross_hs <- aggregate(hillslope ~ patch_id, data = patch_hs_check,
+                      FUN = function(x) length(unique(x)))
+n_violations <- sum(cross_hs$hillslope > 1)
+message("Patches spanning >1 hillslope: ", n_violations,
+        ifelse(n_violations == 0, " ✓", " ✗ — check hs_nlcd_key step"))
+
+message("\n--- Patch count per NLCD class ---")
+patch_nlcd_check <- aggregate(nlcd ~ patch_id, data = xy,
+                               FUN = function(x) length(unique(x)))
+n_mixed_nlcd <- sum(patch_nlcd_check$nlcd > 1)
+message("Patches spanning >1 NLCD class: ", n_mixed_nlcd,
+        ifelse(n_mixed_nlcd == 0, " ✓", " ✗ — check clump step"))
+
+# ── Step 7: Plot ──────────────────────────────────────────────────────────────
+library(ggplot2)
+library(ggnewscale)
+
+patch_df <- as.data.frame(patch_r, xy = TRUE, na.rm = TRUE) |>
+  setNames(c("x", "y", "patch_id")) |>
+  transform(patch_id = factor(patch_id))
+
+nlcd_df <- as.data.frame(nlcd, xy = TRUE, na.rm = TRUE) |>
+  setNames(c("x", "y", "nlcd_class")) |>
+  transform(nlcd_class = factor(nlcd_class))
+
+# Patch edge overlay
+is_edge <- function(r) {
+  # focal computes max value in 3x3 neighborhood
+  # if max != min, the cell is on an edge between different patches
+  f_max <- focal(r, w = 3, fun = "max", na.rm = TRUE)
+  f_min <- focal(r, w = 3, fun = "min", na.rm = TRUE)
+  ifel(is.na(r), NA, ifel(f_max != f_min, 1L, NA))
+}
+
+edge_df <- as.data.frame(is_edge(patch_r), xy = TRUE, na.rm = TRUE) |>
+  setNames(c("x", "y", "edge"))
+
+nlcd_cols <- c("3" = "#1C6330", "4" = "#DBD83D", "1" = "#B2ADA3")
+
+ggplot() +
+  geom_raster(data = nlcd_df, aes(x = x, y = y, fill = nlcd_class)) +
+  scale_fill_manual(values = nlcd_cols, name = "NLCD class") +
+  new_scale_fill() +
+  geom_raster(data = edge_df, aes(x = x, y = y), fill = "black", alpha = 0.5) +
+  coord_equal() +
+  theme_minimal() +
+  labs(title = "Patch map (guided by hillslope × NLCD × elevation)")
+
+```
+
+
 ```{r}
 # 
 # # --- Load inputs ---
@@ -327,7 +491,7 @@ message("Flat hillslopes (zero elevation variance): ",
 
 # ── Allocate patches proportional to hillslope area ──────────────────────────
 # Exclude flat hillslopes from proportional allocation — they get 1 patch each
-n_total      <- 1000
+n_total      <- 3000
 land_hs      <- hs_vals[!hs_vals %in% flat_hs]
 land_counts  <- hs_counts[!hs_vals %in% flat_hs]
 total_cells  <- sum(land_counts)
@@ -395,7 +559,7 @@ plot(patch_r, type = "classes", main = "Patch map")
 unique(patch_r)
 
 #write patch map
-# writeRaster(patch_r, "../spatial_data/ccr_patch_map_kmeans1000.tif", overwrite = TRUE)
+# writeRaster(patch_r, "../spatial_data/ccr_patch_map_kmeans3000.tif", overwrite = TRUE)
 
 
 ```
@@ -413,7 +577,7 @@ getwd()
 template = "templateNLCD_ccr.txt"
 type = "raster"
 typepars = "../spatial_data" #path of the folder containing your rasters
-name = "ccr_mixed"
+name = "ccr_mixed3000"
 overwrite = FALSE
 streams = "ccr_stream1K"  #this is the GRASS streams that has segment #s ; doens't seem to affect flow table or worldfie using stream with segments or all segments as 1
 header = FALSE
@@ -497,9 +661,9 @@ parse_worldfile <- function(filepath) {
 get info from worldfile and plot
 
 ```{r}
-
+getwd()
 #### Parse worldfile 
-df <- parse_worldfile("CCR_files/CCR_NLCDveg/ccr_mixed.world")
+df <- parse_worldfile("./ccr_mixed3000.world")
 head(df)
 
 
@@ -507,7 +671,7 @@ head(df)
 #### patch map ----
 
 # Load patch raster
-patch_rast <- rast("CCR_files/spatial_data/ccr_patch_map_kmeans1000.tif")
+patch_rast <- rast("../spatial_data/ccr_patch_map_kmeans3000.tif")
 plot(patch_rast)
 
 # Build lookup table
@@ -521,10 +685,20 @@ reclass_mat <- cbind(
 )
 
 veg_rast <- classify(patch_rast, reclass_mat, others = NA)
+sum(!is.na(values(veg_rast)))
 
 #plot
 plot(veg_rast)
 
+#comp to NLCD
+
+
+#proejct NLCD to CCR WS
+nlcdOG <- rast("../../Downloaded_Data/NLCD/CCRbox_NLCD_Land_Cover_2021.tif")
+plot(nlcdOG)
+
+nlcd <- rast("../../Downloaded_Data/NLCD/NLCD_rhessys_veg_cover.tif")
+plot(nlcd)
 
 ```
 
