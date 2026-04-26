@@ -17,21 +17,25 @@ textlocTL = function(srcmap) {
 
 ### set basin boundary Make box for watershed area
 ## for CCR square
-basin_bounds = c( 37.4600, 37.3300, -79.8900, -80.1000) # N S E W
-basin_ext = rast(crs = "EPSG:4326")
-ext(basin_ext) = basin_bounds[c(4,3,2,1)]
-values(basin_ext) = 1
-plot(basin_ext)
+#Uncomment lines below to download data
+# basin_bounds = c( 37.4600, 37.3300, -79.8900, -80.1000) # N S E W
+# basin_ext = rast(crs = "EPSG:4326")
+# ext(basin_ext) = basin_bounds[c(4,3,2,1)]
+# values(basin_ext) = 1
+# plot(basin_ext)
+# 
+# #use these two lines below if getting a fetch_memory error
+# library(httr)
+# set_config(config(http_version = 1))  # 1 = HTTP/1.1
+# 
+# NLCD <- get_nlcd(template = basin_ext, 
+#                  label = 'CCRbox', 
+#                  year = 2021, 
+#                  force.redo = T, 
+#                  extraction.dir = paste0("Downloaded_Data/NLCD/"))
 
-#use these two lines below if getting a fetch_memory error
-library(httr)
-set_config(config(http_version = 1))  # 1 = HTTP/1.1
-
-NLCD <- get_nlcd(template = basin_ext, 
-                 label = 'CCRbox', 
-                 year = 2021, 
-                 force.redo = T, 
-                 extraction.dir = paste0("Downloaded_Data/NLCD/"))
+#if data is downloaded just read in
+NLCD <- rast("./Downloaded_Data/NLCD/CCRbox_NLCD_Land_Cover_2021.tif")
 
 
 ##plot nlcd
@@ -43,7 +47,7 @@ crs(NLCD_reproj)
 
 
 ##mask to CCR
-mask_map = rast("Downloaded_Data/Watershed_rasters/ccr_watershed1.tif")
+mask_map = rast("Downloaded_Data/Watershed_rasters/ccr_ws.tif")
 plot(mask_map)
 ccr_mask <- project(mask_map, "EPSG:26917")
 
@@ -72,17 +76,24 @@ hist(NLCD_mask)
 summary(as.factor(values(NLCD_mask)))
 histmerge
 
+# writeRaster(NLCD_mask, "Downloaded_Data/NLCD/NLCD_masked_CCR.tif", overwrite = T)
+
+
 #  ==================== RECLASS =====================
 #updated trying to match numbers in stratum param library: https://github.com/RHESSys/ParameterLibrary/tree/master/Stratum
 # 1 = non veg
 # 2 = grass
 # 3 = deciduous
 # 4 = evergreen
+# 5 = mixed
 #I'm calling mixed as deciduous for now
+NLCD_grass_shrub_past <- ifel(NLCD_mask %in% c(81), 1, 0)
+plot(NLCD_grass_shrub_past)
 
 NLCD_mask_reclass = terra::classify(NLCD_mask,
                                     data.frame(c(11, 21, 22, 23, 24, 31, 41, 42, 43, 52, 71, 81, 82, 90, 95),
-                                               c(1,  3,  3,  3,   3,  3,  3,  4,  3,  3,  3,  3,  3,  3,  3) )) #skipping grass for now
+                                               c(1,  3,  3,  3,   3,  3,  3,  4,  5,  2,  2,  2,  3,  3,  3) )) #leave pasture and mixed
+                                               #c(1,  3,  3,  3,   3,  3,  3,  4,  3,  3,  3,  3,  3,  3,  3) )) #skipping grass for now
                                                #c(1,  1,  1,  1,   1,  1,  3,  4,  3,  2,  2,  2,  2,  2,  2) )) #previous try
 
 ##FROM RHUTILS SCRIPT
@@ -95,5 +106,5 @@ NLCD_mask_reclass = terra::classify(NLCD_mask,
 plot(NLCD_mask, type = "classes", main ="NLCD Land Cover")
 plot(NLCD_mask_reclass, type = "classes", main = "RHESSys numbers")
 
-# writeRaster(NLCD_mask_reclass, "Downloaded_Data/NLCD/NLCD_rhessys_veg_cover.tif", overwrite = T)
+ # writeRaster(NLCD_mask_reclass, "Downloaded_Data/NLCD/NLCD_rhessys_veg_cover_mixed.tif", overwrite = T)
 
