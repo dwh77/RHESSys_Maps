@@ -31,7 +31,7 @@ _world ccr_ws.tif 1
 				x			value 0.0
 				y			value 0.0
 				z			aver  ccr_dem.tif
-				soil_parm_ID	        value 8.0
+				soil_parm_ID	        mode ccr_SOIL.tif
 				landuse_parm_ID		value 1.0
 				area			area
 				slope			aver ccr_slope.tif

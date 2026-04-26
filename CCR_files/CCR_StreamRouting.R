@@ -159,8 +159,8 @@ generate_streamtable <- function(
 generate_streamtable(
   stream_rast   = "CCR_files/spatial_data/ccr_stream1K.tif",
   dem_rast      = "CCR_files/spatial_data/ccr_dem.tif",
-  patch_rast    = "CCR_files/spatial_data/ccr_patch_map_kmeans1000.tif",
-  zone_rast     = "CCR_files/spatial_data/ccr_patch_map_kmeans1000.tif",
+  patch_rast    = "CCR_files/spatial_data/ccr_patch_map_kmeans3000.tif",
+  zone_rast     = "CCR_files/spatial_data/ccr_patch_map_kmeans3000.tif",
   subbasin_rast = "CCR_files/spatial_data/ccr_basin1K_filled.tif",
   hill_rast     = "CCR_files/spatial_data/ccr_basin1K_filled.tif",
   output_file   = "CCR_files/CCR_NLCDveg/ccr_mixed.stream",
@@ -246,31 +246,31 @@ plot(stream_r, type = "classes")
 
 ##plot reaches with no upstream reaches
 st_noup_df <- st |> filter(n_upstream == 0)
-st_noup <- (st_noup$reach_id)
+st_noup <- (st_noup_df$reach_id)
 
 stream_headwater <- ifel(stream_r %in% st_noup, 1000, 1)
 plot(stream_headwater, type="classes")
 
 ##Plot reach that has no downstream reaches
-stream_outlet <- ifel(stream_r == 14, 1000, 1)
-plot(stream_outlet, type="classes", , main = "reach 14 is 1000")
+stream_outlet <- ifel(stream_r == 14, 1, 1000)
+plot(stream_outlet, type="classes", , main = "reach 14 is 1")
 
 #this looks like little piece that sticks above outflow.... 
 #it must be pushing to the deepest depth in the bathy..
 
 #whats upstream
-stream_outlet <- ifel(stream_r == 16, 1000, 1)
-plot(stream_outlet, type="classes", main = "reach 16 is 1000")
+stream_outlet <- ifel(stream_r == 16, 1, 1000)
+plot(stream_outlet, type="classes", main = "reach 16 is 1")
 
 #hmm arm to right; 16 has 2, 18, and 20 w
-stream_outlet <- ifel(stream_r %in% c(2,18,16,20,14), 1000, 1)
+stream_outlet <- ifel(stream_r %in% c(2,18,16,20,14), 1, 1000)
 plot(stream_outlet, type="classes")
 
 #run trhough those above
-stream_outlet <- ifel(stream_r ==2, 1000, 1)
-plot(stream_outlet, type="classes", main = "reach 2 is 1000")
+stream_outlet <- ifel(stream_r ==2, 1, 1000)
+plot(stream_outlet, type="classes", main = "reach 2 is 1")
 
 #2 is the one that should be the outlet 
-stream_outlet <- ifel(stream_r ==4, 1000, 1)
-plot(stream_outlet, type="classes", main = "reach 4 is 1000")
+stream_outlet <- ifel(stream_r ==4, 1, 1000)
+plot(stream_outlet, type="classes", main = "reach 4 is 1")
 

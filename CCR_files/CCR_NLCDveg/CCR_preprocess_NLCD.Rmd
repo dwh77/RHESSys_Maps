@@ -223,8 +223,17 @@ nlcd_mask <- mask(nlcd_crop, ws)
 plot(nlcd_mask)
 sum(is.na(values(nlcd_mask)))
 
-# writeRaster(nlcd_mask, "../spatial_data/ccr_NLCD.tif", overwrite = T)
+ # writeRaster(nlcd_mask, "../spatial_data/ccr_NLCD.tif", overwrite = T)
 
+
+## make soil map based on NLCD just to make the reservoir non loam
+soil <- ifel(nlcd_mask == 1, 1, 8)
+
+plot(soil)
+sum(is.na(values(soil)))
+
+
+# writeRaster(soil, "../spatial_data/ccr_SOIL.tif", overwrite = T)
 
 ```
 
@@ -348,7 +357,7 @@ getwd()
 template = "templateNLCD_ccr.txt"
 type = "raster"
 typepars = "../spatial_data" #path of the folder containing your rasters
-name = "ccr_mixednlcd3000"
+name = "ccr_mixed"
 overwrite = FALSE
 streams = "ccr_stream1K"  #this is the GRASS streams that has segment #s ; doens't seem to affect flow table or worldfie using stream with segments or all segments as 1
 header = FALSE
@@ -399,7 +408,6 @@ parse_worldfile <- function(filepath) {
   for (line in lines) {
     line <- trimws(line)
     
-    # Detect patch block
     if (grepl("^\\d+\\s+patch_ID", line)) {
       if (!is.null(current_patch)) {
         patches <- append(patches, list(current_patch))
@@ -411,14 +419,15 @@ parse_worldfile <- function(filepath) {
       if (grepl("veg_parm_ID", line)) {
         current_patch$veg_parm_ID <- as.integer(strsplit(line, "\\s+")[[1]][1])
       }
-      # Stop collecting at stratum level
+      if (grepl("soil_parm_ID", line)) {                                          # <-- add this
+        current_patch$soil_parm_ID <- as.integer(strsplit(line, "\\s+")[[1]][1]) # <--
+      }                                                                            # <--
       if (grepl("^\\d+\\s+stratum_ID", line)) {
         in_patch <- FALSE
       }
     }
   }
   
-  # Catch last patch
   if (!is.null(current_patch)) {
     patches <- append(patches, list(current_patch))
   }
@@ -434,16 +443,13 @@ get info from worldfile and plot
 ```{r}
 getwd()
 #### Parse worldfile 
-# df <- parse_worldfile("./ccr_mixednlcd1000.world")
-
- df <- parse_worldfile("./ccr_mixednlcd3000.world")
+df <- parse_worldfile("./ccr_mixed.world")
 
 head(df)
 
 #### patch map ----
 
 # Load patch raster
-# patch_rast <- rast("../spatial_data/patch_nlcd1000.tif")
 patch_rast <- rast("../spatial_data/ccr_patch_map_kmeans3000.tif")
 
 plot(patch_rast, main = "patch map")
@@ -452,27 +458,23 @@ plot(patch_rast, main = "patch map")
 # tm_shape(patch_rast)+
 #   tm_raster(style = "cont", palette = "Spectral")
 
-# Build lookup table
-lookup <- setNames(df$veg_parm_ID, df$patch_ID)
+# --- veg_parm_ID raster (unchanged) ---
+lookup_veg <- setNames(df$veg_parm_ID, df$patch_ID)
+reclass_veg <- cbind(from = as.numeric(names(lookup_veg)), to = as.numeric(lookup_veg))
+veg_rast <- classify(patch_rast, reclass_veg, others = NA)
 
-# Remap patch IDs to veg_parm_ID using classify()
-# Create a reclassification matrix: [from, to]
-reclass_mat <- cbind(
-  from = as.numeric(names(lookup)),
-  to   = as.numeric(lookup)
-)
+# --- soil_parm_ID raster (new) ---
+lookup_soil <- setNames(df$soil_parm_ID, df$patch_ID)
+reclass_soil <- cbind(from = as.numeric(names(lookup_soil)), to = as.numeric(lookup_soil))
+soil_rast <- classify(patch_rast, reclass_soil, others = NA)
 
-veg_rast <- classify(patch_rast, reclass_mat, others = NA)
-sum(!is.na(values(veg_rast)))
+# --- Plot both ---
+plot(veg_rast,  main = "veg_parm_ID")
+plot(soil_rast, main = "soil_parm_ID")
 
-#plot
-plot(veg_rast)
-# vegrast2 <- veg_rast
-# plot(vegrast2)
-#comp to NLCD
 
 plot(ifel(veg_rast == 1, 1, 0))
-plot(ifel(veg_rast == 2, 2, 0))
+plot(ifel(veg_rast == 3, 3, 0))
 
 
 # #proejct NLCD to CCR WS
