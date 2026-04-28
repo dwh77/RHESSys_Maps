@@ -159,11 +159,11 @@ generate_streamtable <- function(
 generate_streamtable(
   stream_rast   = "CCR_files/spatial_data/ccr_stream1K.tif",
   dem_rast      = "CCR_files/spatial_data/ccr_dem.tif",
-  patch_rast    = "CCR_files/spatial_data/ccr_patch_map_kmeans3000.tif",
-  zone_rast     = "CCR_files/spatial_data/ccr_patch_map_kmeans3000.tif",
+  patch_rast    = "CCR_files/spatial_data/ccr_patch_map_kmeans1000.tif",
+  zone_rast     = "CCR_files/spatial_data/ccr_patch_map_kmeans1000.tif",
   subbasin_rast = "CCR_files/spatial_data/ccr_basin1K_filled.tif",
   hill_rast     = "CCR_files/spatial_data/ccr_basin1K_filled.tif",
-  output_file   = "CCR_files/CCR_NLCDveg/ccr_mixed.stream",
+  output_file   = "CCR_files/CCR_NLCDveg/ccr_mixed1K.stream",
   ManningsN      = 0.035,
   streamTopWidth = 2.0,
   streamBotWidth = 1.0,
@@ -232,7 +232,7 @@ read_streamtable <- function(file) {
 
 
 ####read in and check file
-st <- read_streamtable("CCR_files/CCR_NLCDveg/ccr_mixed.stream")
+st <- read_streamtable("CCR_files/CCR_NLCDveg/ccr_mixed1K.stream")
 # st <- read_streamtable("C:/Users/dwh18/OneDrive/Desktop/R_Projects/RHESSys_Tutorial/HPB_files_NewMaps/worldfiles/stream.hpb")
 
 
@@ -271,6 +271,39 @@ stream_outlet <- ifel(stream_r ==2, 1, 1000)
 plot(stream_outlet, type="classes", main = "reach 2 is 1")
 
 #2 is the one that should be the outlet 
-stream_outlet <- ifel(stream_r ==4, 1, 1000)
+stream_outlet <- ifel(stream_r == 4, 1, 1000)
 plot(stream_outlet, type="classes", main = "reach 4 is 1")
+
+
+## look at basin with number labels
+#basins with labels
+# Get centroids of each basin polygon
+basin_polys <- as.polygons(basin_r)
+basin_cents <- centroids(basin_polys)
+
+# Extract coordinates and basin ID values
+cents_df <- as.data.frame(basin_cents, geom = "XY")
+
+# Plot the raster then overlay labels
+plot(basin_r, type = "classes", legend = FALSE)
+text(basin_cents, labels = basin_cents$`basin1K@PERMANENT`, cex = 0.6)
+
+library(mapview)
+library(sf)
+
+# Convert to sf for mapview
+basin_sf <- st_as_sf(basin_polys)
+
+# Plot interactively - zoom, pan, click polygons to see attributes
+mapview(basin_sf, zcol = "basin1K@PERMANENT", label = "basin1K@PERMANENT")
+
+stream_outlet <- ifel(stream_r == 8, 1, 1000)
+plot(stream_outlet, type="classes", main = "reach 8 is 1")
+
+## notes on stream # to basin: 
+#12 is HPB: 10 drains into this; so functionally same as HPB in its own file 
+# 62 is SMB
+# 54 is CCS 
+
+
 

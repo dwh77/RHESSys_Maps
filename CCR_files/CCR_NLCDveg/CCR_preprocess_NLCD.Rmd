@@ -238,6 +238,36 @@ sum(is.na(values(soil)))
 ```
 
 
+make two stratum maps
+
+```{r}
+# library(terra)
+# nlcd <- rast("../spatial_data/ccr_NLCD.tif")
+# plot(nlcd)
+# nonveg_id <- 1  # check your veg_nonveg.def stratum_default_ID and update this
+# 
+# # Primary stratum: mixed (5) → deciduous (3)
+# veg1 <- classify(nlcd, cbind(5, 3))
+# plot(veg1)
+# writeRaster(veg1, "../spatial_data/ccr_veg_primary.tif", overwrite=TRUE)
+# 
+# # Secondary stratum: mixed (5) → evergreen (4), all others → nonveg
+# veg2 <- classify(nlcd, rbind(c(5, 4)), others=nonveg_id)
+# plot(veg2)
+# writeRaster(veg2, "../spatial_data/ccr_veg_secondary.tif", overwrite=TRUE)
+# 
+# # Cover fractions
+# cov1 <- classify(nlcd, cbind(5, 0.9), others=1.0)
+# plot(cov1)
+# writeRaster(cov1, "../spatial_data/ccr_cover_primary.tif", overwrite=TRUE)
+# 
+# cov2 <- classify(nlcd, cbind(5, 0.1), others=0.0)
+# plot(cov2)
+# writeRaster(cov2, "../spatial_data/ccr_cover_secondary.tif", overwrite=TRUE)
+
+```
+
+
 
 ## try making a more informed patch map 
 kmeans patches
@@ -271,7 +301,7 @@ message("Flat hillslopes (zero elevation variance): ",
 
 # ── Allocate patches proportional to hillslope area ──────────────────────────
 # Exclude flat hillslopes from proportional allocation — they get 1 patch each
-n_total      <- 3000
+n_total      <- 1000
 land_hs      <- hs_vals[!hs_vals %in% flat_hs]
 land_counts  <- hs_counts[!hs_vals %in% flat_hs]
 total_cells  <- sum(land_counts)
@@ -339,7 +369,7 @@ plot(patch_r, type = "classes", main = "Patch map")
 unique(patch_r)
 
 #write patch map
-# writeRaster(patch_r, "../spatial_data/ccr_patch_map_kmeans3000.tif", overwrite = TRUE)
+# writeRaster(patch_r, "../spatial_data/ccr_patch_map_kmeans1000.tif", overwrite = TRUE)
 
 
 ```
@@ -357,7 +387,7 @@ getwd()
 template = "templateNLCD_ccr.txt"
 type = "raster"
 typepars = "../spatial_data" #path of the folder containing your rasters
-name = "ccr_mixed"
+name = "ccr_mixed1K"
 overwrite = FALSE
 streams = "ccr_stream1K"  #this is the GRASS streams that has segment #s ; doens't seem to affect flow table or worldfie using stream with segments or all segments as 1
 header = FALSE
@@ -443,14 +473,14 @@ get info from worldfile and plot
 ```{r}
 getwd()
 #### Parse worldfile 
-df <- parse_worldfile("./ccr_mixed.world")
+df <- parse_worldfile("./ccr_mixed1K.world")
 
 head(df)
 
 #### patch map ----
 
 # Load patch raster
-patch_rast <- rast("../spatial_data/ccr_patch_map_kmeans3000.tif")
+patch_rast <- rast("../spatial_data/ccr_patch_map_kmeans1000.tif")
 
 plot(patch_rast, main = "patch map")
 

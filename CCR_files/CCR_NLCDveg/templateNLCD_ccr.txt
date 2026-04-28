@@ -14,7 +14,7 @@ _world ccr_ws.tif 1
 		gw.storage	value 0.0
 		gw.NO3		value 0.0
 		hillslope_n_basestations	dvalue 0
-		_zone ccr_patch_map_kmeans3000.tif 1
+		_zone ccr_patch_map_kmeans1000.tif 1
 			x		  value 0.0
 			y		  value 0.0
 			z		  aver ccr_dem.tif
@@ -27,7 +27,7 @@ _world ccr_ws.tif 1
 			w_horizon	  eqn 0.01 0.0 ccr_whr.tif
 			zone_n_basestations	  dvalue 1
 			zone_basestation_ID	  dvalue 101
-			 _patch ccr_patch_map_kmeans3000.tif 1
+			 _patch ccr_patch_map_kmeans1000.tif 1
 				x			value 0.0
 				y			value 0.0
 				z			aver  ccr_dem.tif
@@ -60,7 +60,7 @@ _world ccr_ws.tif 1
 				soil_cs.soil3c  	value 0.0
 				soil_cs.soil4c		value 0.0
 				patch_n_basestations		dvalue 0
-				_canopy_strata ccr_patch_map_kmeans3000.tif 1
+				_canopy_strata ccr_patch_map_kmeans1000.tif 1
 					veg_parm_ID 		mode ccr_NLCD.tif
 					cover_fraction		value 1.0
 					gap_fraction		value 0.0
