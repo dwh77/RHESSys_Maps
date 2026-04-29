@@ -474,7 +474,7 @@ plot(b, add = TRUE, col = "red", legend = FALSE)
 # Write raster
 # =============================================================================
 
-writeRaster(patch_map, "./spatial_data/ccr_patch_map_500.tif", overwrite = TRUE)
+# writeRaster(patch_map, "./spatial_data/ccr_patch_map_500.tif", overwrite = TRUE)
 
 
 
@@ -602,7 +602,7 @@ getwd()
 template = "template_ccr.txt"
 type = "raster"
 typepars = "./spatial_data" #path of the folder containing your rasters
-name = "ccr_mixed"
+name = "ccr_500"
 overwrite = FALSE
 streams = "ccr_stream1K"  #this is the GRASS streams that has segment #s ; doens't seem to affect flow table or worldfie using stream with segments or all segments as 1
 header = FALSE
@@ -688,16 +688,23 @@ get info from worldfile and plot
 ```{r}
 getwd()
 #### Parse worldfile 
-df <- parse_worldfile("./ccr_mixed1K.world")
+# df <- parse_worldfile("./ccr_mixed.world")
+df <- parse_worldfile("./ccr_500.world")
+
 
 head(df)
 
 #### patch map ----
 
 # Load patch raster
-patch_rast <- rast("./spatial_data/ccr_patch_map_kmeans1000.tif")
+# patch_rast <- rast("./spatial_data/ccr_patch_map_kmeans1000.tif")
+patch_rast <- rast("./spatial_data/ccr_patch_map_500.tif")
 
 plot(patch_rast, main = "patch map")
+
+
+stream_rast <- rast("./spatial_data/ccr_stream1K.tif")
+
 
 # library(tmap)
 # tm_shape(patch_rast)+
@@ -717,6 +724,8 @@ soil_rast <- classify(patch_rast, reclass_soil, others = NA)
 plot(veg_rast,  main = "veg_parm_ID")
 plot(soil_rast, main = "soil_parm_ID")
 
+plot(soil_rast, main = "soil_parm_ID")
+plot(stream_rast, add = T)
 
 plot(ifel(veg_rast == 1, 1, 0))
 plot(ifel(veg_rast == 3, 3, 0))

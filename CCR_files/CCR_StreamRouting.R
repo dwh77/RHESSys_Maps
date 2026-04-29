@@ -228,8 +228,8 @@ read_streamtable <- function(file) {
 
 #### Read in basin and stream map to ID outlet ----
 ## sanity check on basin IDs and stream IDs
-basin_r <- rast("CCR_files/CCR_nhdburn/spatial_data/ccr_basin1K_filled.tif")
-stream_r <- rast("CCR_files/CCR_nhdburn/spatial_data/ccr_stream1K.tif")
+basin_r <- rast("CCR_files/CCR/spatial_data/ccr_basin1K_filled.tif")
+stream_r <- rast("CCR_files/CCR/spatial_data/ccr_stream1K.tif")
 
 
 ## look at basin with number labels
@@ -264,13 +264,13 @@ mapview(basin_sf, zcol = "basin1K@PERMANENT", label = "basin1K@PERMANENT") +
 
 #### Make stream table ----
 generate_streamtable(
-  stream_rast   = "CCR_files/CCR_nhdburn/spatial_data/ccr_stream1K.tif",
-  dem_rast      = "CCR_files/CCR_nhdburn/spatial_data/ccr_dem.tif",
-  patch_rast    = "CCR_files/CCR_nhdburn/spatial_data/ccr_patch_map_kmeans1000.tif",
-  zone_rast     = "CCR_files/CCR_nhdburn/spatial_data/ccr_patch_map_kmeans1000.tif",
-  subbasin_rast = "CCR_files/CCR_nhdburn/spatial_data/ccr_basin1K_filled.tif",
-  hill_rast     = "CCR_files/CCR_nhdburn/spatial_data/ccr_basin1K_filled.tif",
-  output_file   = "CCR_files/CCR_nhdburn/ccr_mixed.stream",
+  stream_rast   = "CCR_files/CCR/spatial_data/ccr_stream1K.tif",
+  dem_rast      = "CCR_files/CCR/spatial_data/ccr_dem.tif",
+  patch_rast    = "CCR_files/CCR/spatial_data/ccr_patch_map_500.tif",
+  zone_rast     = "CCR_files/CCR/spatial_data/ccr_patch_map_500.tif",
+  subbasin_rast = "CCR_files/CCR/spatial_data/ccr_basin1K_filled.tif",
+  hill_rast     = "CCR_files/CCR/spatial_data/ccr_basin1K_filled.tif",
+  output_file   = "CCR_files/CCR/ccr_500.stream",
   outlet_id     = 2,   # <-- your known outlet
   ManningsN      = 0.035,
   streamTopWidth = 2.0,
@@ -284,7 +284,7 @@ generate_streamtable(
 
 
 ####read in and check file ----
-st <- read_streamtable("CCR_files/CCR_nhdburn/ccr_mixed1K.stream")
+st <- read_streamtable("CCR_files/CCR/ccr_500.stream")
 # sthpb <- read_streamtable("C:/Users/dwh18/OneDrive/Desktop/R_Projects/RHESSys_Tutorial/HPB_files_NewMaps/worldfiles/stream.hpb")
 
 
