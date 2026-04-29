@@ -2,6 +2,9 @@
 
 library(terra)
 
+#### Functions ----
+
+#### Make stream table
 generate_streamtable <- function(
     stream_rast,
     dem_rast,
@@ -163,24 +166,8 @@ generate_streamtable <- function(
 }
 
 
-# ── Run ──────────────────────────────────────────────────────────────────────
-generate_streamtable(
-  stream_rast   = "CCR_files/CCR_nhdburn/spatial_data/ccr_stream1K.tif",
-  dem_rast      = "CCR_files/CCR_nhdburn/spatial_data/ccr_dem.tif",
-  patch_rast    = "CCR_files/CCR_nhdburn/spatial_data/ccr_patch_map_kmeans1000.tif",
-  zone_rast     = "CCR_files/CCR_nhdburn/spatial_data/ccr_patch_map_kmeans1000.tif",
-  subbasin_rast = "CCR_files/CCR_nhdburn/spatial_data/ccr_basin1K_filled.tif",
-  hill_rast     = "CCR_files/CCR_nhdburn/spatial_data/ccr_basin1K_filled.tif",
-  output_file   = "CCR_files/CCR_nhdburn/ccr_mixed1K.stream",
-  outlet_id     = 2,   # <-- your known outlet
-  ManningsN      = 0.035,
-  streamTopWidth = 2.0,
-  streamBotWidth = 1.0,
-  streamDepth    = 0.5
-)
 
-
-### function to readin file to check
+#### Function to read in streamtable
 read_streamtable <- function(file) {
   lines <- readLines(file)
   n_reaches <- as.integer(lines[1])
@@ -239,55 +226,10 @@ read_streamtable <- function(file) {
 
 
 
-####read in and check file
-st <- read_streamtable("CCR_files/CCR_nhdburn/ccr_mixed1K.stream")
-# sthpb <- read_streamtable("C:/Users/dwh18/OneDrive/Desktop/R_Projects/RHESSys_Tutorial/HPB_files_NewMaps/worldfiles/stream.hpb")
-
-
+#### Read in basin and stream map to ID outlet ----
 ## sanity check on basin IDs and stream IDs
 basin_r <- rast("CCR_files/CCR_nhdburn/spatial_data/ccr_basin1K_filled.tif")
-plot(basin_r)
-
 stream_r <- rast("CCR_files/CCR_nhdburn/spatial_data/ccr_stream1K.tif")
-
-plot(stream_r, type = "classes")
-
-##plot reaches with no upstream reaches
-st_noup_df <- st |> filter(n_upstream == 0)
-st_noup <- (st_noup_df$reach_id)
-
-stream_headwater <- ifel(stream_r %in% st_noup, 1000, 1)
-plot(stream_headwater, type="classes")
-
-##Plot reach that has no downstream reaches
-st_nodown_df <- st |> filter(n_downstream == 0)
-st_nodown_df <- (st_nodown_df$reach_id)
-
-stream_outlet <- ifel(stream_r %in% st_nodown_df, 1000, 1)
-plot(stream_outlet, type="classes")
-
-
-stream_outlet <- ifel(stream_r == 2, 1, 1000)
-plot(stream_outlet, type="classes", , main = "reach 2 is 1")
-
-#this looks like little piece that sticks above outflow.... 
-#it must be pushing to the deepest depth in the bathy..
-
-#whats upstream
-stream_outlet <- ifel(stream_r == 16, 1, 1000)
-plot(stream_outlet, type="classes", main = "reach 16 is 1")
-
-#hmm arm to right; 16 has 2, 18, and 20 w
-stream_outlet <- ifel(stream_r %in% c(2,18,16,20,14), 1, 1000)
-plot(stream_outlet, type="classes")
-
-#run trhough those above
-stream_outlet <- ifel(stream_r ==2, 1, 1000)
-plot(stream_outlet, type="classes", main = "reach 2 is 1")
-
-#2 is the one that should be the outlet 
-stream_outlet <- ifel(stream_r == 4, 1, 1000)
-plot(stream_outlet, type="classes", main = "reach 4 is 1")
 
 
 ## look at basin with number labels
@@ -313,17 +255,69 @@ stream_polys <- as.polygons(stream_r)
 stream_sf <- st_as_sf(stream_polys)
 
 # Plot interactively - zoom, pan, click polygons to see attributes
-mapview(basin_sf, zcol = "basin1K@PERMANENT", label = "basin1K@PERMANENT")+
-mapview(stream_sf, zcol = "stream1K@PERMANENT", label = "stream1K@PERMANENT")
+#can remove the plus to just do one by one
+mapview(basin_sf, zcol = "basin1K@PERMANENT", label = "basin1K@PERMANENT") +
+  mapview(stream_sf, zcol = "stream1K@PERMANENT", label = "stream1K@PERMANENT")
 
 
-stream_outlet <- ifel(stream_r == 8, 1, 1000)
-plot(stream_outlet, type="classes", main = "reach 8 is 1")
 
-## notes on stream # to basin: 
-#12 is HPB: 10 drains into this; so functionally same as HPB in its own file 
-# 62 is SMB
-# 54 is CCS 
+
+#### Make stream table ----
+generate_streamtable(
+  stream_rast   = "CCR_files/CCR_nhdburn/spatial_data/ccr_stream1K.tif",
+  dem_rast      = "CCR_files/CCR_nhdburn/spatial_data/ccr_dem.tif",
+  patch_rast    = "CCR_files/CCR_nhdburn/spatial_data/ccr_patch_map_kmeans1000.tif",
+  zone_rast     = "CCR_files/CCR_nhdburn/spatial_data/ccr_patch_map_kmeans1000.tif",
+  subbasin_rast = "CCR_files/CCR_nhdburn/spatial_data/ccr_basin1K_filled.tif",
+  hill_rast     = "CCR_files/CCR_nhdburn/spatial_data/ccr_basin1K_filled.tif",
+  output_file   = "CCR_files/CCR_nhdburn/ccr_mixed.stream",
+  outlet_id     = 2,   # <-- your known outlet
+  ManningsN      = 0.035,
+  streamTopWidth = 2.0,
+  streamBotWidth = 1.0,
+  streamDepth    = 0.5
+)
+
+
+
+
+
+
+####read in and check file ----
+st <- read_streamtable("CCR_files/CCR_nhdburn/ccr_mixed1K.stream")
+# sthpb <- read_streamtable("C:/Users/dwh18/OneDrive/Desktop/R_Projects/RHESSys_Tutorial/HPB_files_NewMaps/worldfiles/stream.hpb")
+
+
+
+
+##plot reaches with no upstream reaches
+st_noup_df <- st |> filter(n_upstream == 0)
+st_noup <- (st_noup_df$reach_id)
+
+stream_headwater <- ifel(stream_r %in% st_noup, 1000, 1)
+plot(stream_headwater, type="classes")
+
+##Plot reach that has no downstream reaches
+st_nodown_df <- st |> filter(n_downstream == 0)
+st_nodown_df <- (st_nodown_df$reach_id)
+
+stream_outlet <- ifel(stream_r %in% st_nodown_df, 1000, 1)
+plot(stream_outlet, type="classes")
+
+#stream outlet
+stream_outlet <- ifel(stream_r == 2, 1, 1000)
+plot(stream_outlet, type="classes", , main = "reach 2 is 1")
+
+#whats upstream
+stream_outlet <- ifel(stream_r == 4, 1, 1000)
+plot(stream_outlet, type="classes", main = "reach 4 is 1")
+
+
+## notes on stream # to basin: can use viewer from above to check
+#2 is the outlet
+#62 is HPB: 64 drains into this; so gets main HPB piece
+# 36 is SMB
+# 28 is CCS 
 
 
 

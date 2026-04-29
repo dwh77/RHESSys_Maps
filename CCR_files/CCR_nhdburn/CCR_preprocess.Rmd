@@ -15,7 +15,7 @@ library(RHESSysPreprocessing)
 
 
 ##reproject DEM to utm for GRASS
-In GRASS using the DEM with NHD flowlines burned "CCR_files/CCR_nhdburn/spatial_data/CCR_DEM_burned.tif" as input that was created in DEM_NHDburn.R
+In GRASS using the DEM where CCR is assumed to be at full pond, this is functinally the downloaded DEM but fixing weird affect near dam. I set any value <= 356.6 elevation to 356.6 "CCR_files/CCR_nhdburn/spatial_data/CCR_DEM_fullpond.tif" as input that was created in DEM_NHDburn.R
 And the associated watershed file from that script "Downloaded_data/Watershed_rasters/ccr_ws.tif"
 
 In GRASS making slope, aspect, basins, etc maps 
@@ -388,7 +388,7 @@ getwd()
 template = "template_ccr.txt"
 type = "raster"
 typepars = "./spatial_data" #path of the folder containing your rasters
-name = "ccr_mixed1K"
+name = "ccr_mixed"
 overwrite = FALSE
 streams = "ccr_stream1K"  #this is the GRASS streams that has segment #s ; doens't seem to affect flow table or worldfie using stream with segments or all segments as 1
 header = FALSE
