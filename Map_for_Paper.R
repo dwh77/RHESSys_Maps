@@ -19,6 +19,11 @@ ws_proj      <- project(ws,        target_crs)
 streams_proj <- project(streams1K, target_crs)
 dem_proj     <- project(dem,       target_crs)
 
+library(tmap)
+tm_shape(dem)+
+  tm_raster(style = "cont", palette = "-Spectral", legend.show = F)
+  #tm_scale_bar()+ tm_title("DEM only")
+
 # ── Watershed boundary ────────────────────────────────────────────────────────
 ws_poly <- ws_proj |>
   as.polygons() |>
@@ -57,31 +62,42 @@ stream_col    <- "white"  #"#6BC4C8"
 reservoir_col <- "#2166AC"
 boundary_col  <- "black"
 
+# ── Site locations ─────────────────────────────────────────────────────────────
+ccr_dam <- data.frame(name = "CCR Dam", lon = -79.958,  lat = 37.3697)
+hpb     <- data.frame(name = "HPB",     lon = -79.9733, lat = 37.3646)
+ccs     <- data.frame(name = "CCS",     lon = -79.9937, lat = 37.3958)
+smb     <- data.frame(name = "SMB",     lon = -79.9771, lat = 37.4169)
+
+sites <- rbind(ccr_dam, hpb, ccs, smb) |>
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) |>
+  st_transform(3857)
+
+
 # ── Plot ──────────────────────────────────────────────────────────────────────
 p <- ggplot() +
   
-  # 1. Satellite basemap (expanded)
+  # 1. Satellite basemap
   layer_spatial(basemap) +
   
   # 2. Streams
   geom_spatraster(data = streams_mask, na.rm = TRUE) +
   scale_fill_manual(
-    values   = c("1" = stream_col),
-    na.value = "transparent",
-    na.translate = FALSE,          # removes the NA row from legend
-    name     = NULL,
-    labels   = "Streams"
+    values      = c("1" = stream_col),
+    na.value    = "transparent",
+    na.translate = FALSE,
+    name        = NULL,
+    labels      = "Stream network"
   ) +
   
   # 3. Reservoir on top
   new_scale_fill() +
   geom_spatraster(data = reservoir, na.rm = TRUE) +
   scale_fill_manual(
-    values   = c("1" = reservoir_col),
-    na.value = "transparent",
-    na.translate = FALSE,          # removes the NA row from legend
-    name     = NULL,
-    labels   = "CCR"
+    values      = c("1" = reservoir_col),
+    na.value    = "transparent",
+    na.translate = FALSE,
+    name        = NULL,
+    labels      = "Reservoir"
   ) +
   
   # 4. Watershed boundary
@@ -89,52 +105,77 @@ p <- ggplot() +
           colour = boundary_col, linewidth = 0.8,
           show.legend = FALSE) +
   
-  # ── Annotations ───────────────────────────────────────────────────────────
+  # 5. Site points
+  new_scale_fill() +
+  geom_sf(data   = sites,
+          aes(fill = name, shape = name),
+          colour = "black",
+          size   = 3,
+          stroke = 0.5) +
+  scale_fill_manual(
+    name   = NULL,
+    values = c(
+      "CCR Dam" = "#FF4444",
+      "HPB"     = "#4FC3F7",
+      "CCS"     = "#81C784",
+      "SMB"     = "#FFB74D"
+    )
+  ) +
+  scale_shape_manual(
+    name   = NULL,
+    values = c(
+      "CCR Dam" = 24,
+      "HPB"     = 22,
+      "CCS"     = 22,
+      "SMB"     = 22
+    )
+  ) +
+  
+  # ── Annotations ─────────────────────────────────────────────────────────────
   annotation_scale(
-    location = "bl", width_hint = 0.2,
-    text_col = "white", line_col = "white",
-    bar_cols = c("white", "grey40")
+    location  = "br", width_hint = 0.2,
+    text_col  = "white", line_col = "white",
+    bar_cols  = c("white", "grey40")
   ) +
   annotation_north_arrow(
-    location = "bl", pad_y = unit(0.65, "cm"),
-    style = north_arrow_fancy_orienteering(
+    location = "br", pad_y = unit(0.65, "cm"),
+    style    = north_arrow_fancy_orienteering(
       fill     = c("white", "grey30"),
       text_col = "white"
     )
   ) +
   
-  # ── Lat/lon axes ──────────────────────────────────────────────────────────
+  # ── Extent ──────────────────────────────────────────────────────────────────
   coord_sf(
     xlim   = c(ws_ext$xmin - x_pad, ws_ext$xmax + x_pad),
     ylim   = c(ws_ext$ymin - y_pad, ws_ext$ymax + y_pad),
     expand = FALSE,
-    datum  = sf::st_crs(4326)   # graticule in degrees, but xlim/ylim stay in 3857 metres
+    datum  = sf::st_crs(4326)
   ) +
   
-  # ── Theme ─────────────────────────────────────────────────────────────────
+  # ── Theme ───────────────────────────────────────────────────────────────────
   theme_void() +
   theme(
     plot.background      = element_rect(fill = "white", colour = NA),
-    # Axis text and ticks
     axis.text            = element_text(colour = "black", size = 7),
     axis.text.x          = element_text(margin = margin(t = 4)),
     axis.text.y          = element_text(margin = margin(r = 4)),
     axis.ticks           = element_line(colour = "black", linewidth = 0.3),
     axis.ticks.length    = unit(0.15, "cm"),
-    # Legend
     legend.position      = c(0.02, 0.98),
     legend.justification = c(0, 1),
     legend.background    = element_rect(fill = alpha("black", 0.55), colour = NA),
     legend.text          = element_text(colour = "white", size = 9),
-    legend.key           = element_rect(fill = "transparent", colour = NA),
-    legend.margin        = margin(6, 8, 6, 8)
+    legend.key.size      = unit(0.4, "cm"),
+    legend.key           = element_blank(),      # removes the gray box
+    legend.margin        = margin(6, 8, 6, 8),
+    legend.spacing.y     = unit(0.1, "cm")
   )
 
 p
 
 # ggsave("ccr_watershed_map.png", p,
 #        width = 10, height = 8, dpi = 300, bg = "black")
-
 
 
 
