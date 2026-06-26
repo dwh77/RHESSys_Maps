@@ -49,8 +49,8 @@ reservoir    <- as.factor(reservoir)
 # ── Expand basemap bbox before fetching tiles ─────────────────────────────────
 # Expand the extent by 20% on each side for breathing room
 ws_ext     <- ext(ws_proj)
-x_pad      <- (ws_ext$xmax - ws_ext$xmin) * 0.05
-y_pad      <- (ws_ext$ymax - ws_ext$ymin) * 0.05
+x_pad      <- (ws_ext$xmax - ws_ext$xmin) * 0.02
+y_pad      <- (ws_ext$ymax - ws_ext$ymin) * 0.02
 bbox_exp   <- ext(ws_ext$xmin - x_pad, ws_ext$xmax + x_pad,
                   ws_ext$ymin - y_pad, ws_ext$ymax + y_pad)
 bbox_sf    <- st_as_sf(as.polygons(bbox_exp, crs = target_crs))
@@ -110,7 +110,7 @@ p <- ggplot() +
   geom_sf(data   = sites,
           aes(fill = name, shape = name),
           colour = "black",
-          size   = 3,
+          size   = 4,
           stroke = 0.5) +
   scale_fill_manual(
     name   = NULL,
@@ -133,12 +133,12 @@ p <- ggplot() +
   
   # ── Annotations ─────────────────────────────────────────────────────────────
   annotation_scale(
-    location  = "br", width_hint = 0.2,
+    location  = "bl", width_hint = 0.2,
     text_col  = "white", line_col = "white",
-    bar_cols  = c("white", "grey40")
+    bar_cols  = c("white", "grey40"), 
   ) +
   annotation_north_arrow(
-    location = "br", pad_y = unit(0.65, "cm"),
+    location = "bl", pad_y = unit(0.65, "cm"),
     style    = north_arrow_fancy_orienteering(
       fill     = c("white", "grey30"),
       text_col = "white"
@@ -157,7 +157,7 @@ p <- ggplot() +
   theme_void() +
   theme(
     plot.background      = element_rect(fill = "white", colour = NA),
-    axis.text            = element_text(colour = "black", size = 7),
+    axis.text            = element_text(colour = "black", size = 8),
     axis.text.x          = element_text(margin = margin(t = 4)),
     axis.text.y          = element_text(margin = margin(r = 4)),
     axis.ticks           = element_line(colour = "black", linewidth = 0.3),
@@ -165,7 +165,7 @@ p <- ggplot() +
     legend.position      = c(0.02, 0.98),
     legend.justification = c(0, 1),
     legend.background    = element_rect(fill = alpha("black", 0.55), colour = NA),
-    legend.text          = element_text(colour = "white", size = 9),
+    legend.text          = element_text(colour = "white", size = 10),
     legend.key.size      = unit(0.4, "cm"),
     legend.key           = element_blank(),      # removes the gray box
     legend.margin        = margin(6, 8, 6, 8),
