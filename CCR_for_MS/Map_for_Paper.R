@@ -9,9 +9,9 @@ library(ggspatial)      # for scale bar & north arrow
 library(ggnewscale)
 
 # ── Load data ────────────────────────────────────────────────────────────────
-ws        <- rast("./CCR_files/CCR/spatial_data/ccr_ws.tif")
-streams1K <- rast("./CCR_files/CCR/spatial_data/ccr_stream1K.tif")
-dem       <- rast("./CCR_files/CCR/spatial_data/ccr_dem.tif")
+ws        <- rast("./CCR_for_MS/spatial_data/ccr_ws.tif")
+streams1K <- rast("./CCR_for_MS/spatial_data/ccr_stream1K.tif")
+dem       <- rast("./CCR_for_MS/spatial_data/ccr_dem.tif")
 
 # ── Reproject ─────────────────────────────────────────────────────────────────
 target_crs   <- "EPSG:3857"
